@@ -6,8 +6,6 @@ use crate::states::*;
 pub struct JoinGame<'info> {
     #[account(mut)]
     pub player: Signer<'info>,
-    /// CHECK: This is not dangerous because we don't read or write from this account
-    pub organiser: AccountInfo<'info>,
     #[account(
       init, 
       seeds = [player.to_account_info().key.as_ref(), game.to_account_info().key.as_ref()],
@@ -18,7 +16,6 @@ pub struct JoinGame<'info> {
     pub play_proof: Account<'info, PlayProof>,
     #[account(
         mut,
-        has_one = organiser,
     )]
     pub game: Account<'info, Game>,
     /// CHECK: This is not dangerous because we don't read or write from this account

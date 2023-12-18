@@ -124,7 +124,6 @@ describe("werewolf_saga", () => {
 
     await wwc.joinGame(
       playerVillager1,
-      organiser.publicKey,
       playProofVillager1Pda,
       gameAccountPda
     );
@@ -146,21 +145,18 @@ describe("werewolf_saga", () => {
 
     await wwc.joinGame(
       playerVillager2,
-      organiser.publicKey,
       playProofVillager2Pda,
       gameAccountPda
     );
 
     await wwc.joinGame(
       playerSeer,
-      organiser.publicKey,
       playProofSeerPda,
       gameAccountPda
     );
 
     await wwc.joinGame(
       playerWolf,
-      organiser.publicKey,
       playProofWolfPda,
       gameAccountPda
     );

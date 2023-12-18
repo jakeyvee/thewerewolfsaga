@@ -2,7 +2,12 @@ import * as anchor from "@coral-xyz/anchor";
 import { AccountUtils } from "./client/account-utils";
 import { WerewolfSaga } from "../target/types/werewolf_saga";
 import { BN, Idl, Program, AnchorProvider } from "@coral-xyz/anchor";
-import { Connection, Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  TransactionInstruction,
+} from "@solana/web3.js";
 import { isKp, toByteArray } from "./client/types";
 
 export class WerewolfClient extends AccountUtils {
@@ -87,7 +92,7 @@ export class WerewolfClient extends AccountUtils {
     );
   }
 
-  findVoteProofPDA( player: PublicKey, round: number) {
+  findVoteProofPDA(player: PublicKey, round: number) {
     return PublicKey.findProgramAddressSync(
       [
         Buffer.from(anchor.utils.bytes.utf8.encode("vote-seed")),
@@ -117,9 +122,11 @@ export class WerewolfClient extends AccountUtils {
   async createGame(
     organiser: PublicKey | Keypair,
     game: PublicKey,
-    gameName: string
+    gameName: string,
+    additionalSigners: Keypair[] = [],
+    preIxs: TransactionInstruction[] = []
   ) {
-    const signers = [];
+    const signers = [...additionalSigners];
     if (isKp(organiser)) signers.push(<Keypair>organiser);
 
     const txSig = await this.werewolfProgram.methods
@@ -130,6 +137,7 @@ export class WerewolfClient extends AccountUtils {
           : (organiser as PublicKey),
         game,
       })
+      .preInstructions(preIxs)
       .signers(signers)
       .rpc();
 
@@ -138,11 +146,12 @@ export class WerewolfClient extends AccountUtils {
 
   async joinGame(
     player: PublicKey | Keypair,
-    organiser: PublicKey,
     playProof: PublicKey,
-    game: PublicKey
+    game: PublicKey,
+    additionalSigners: Keypair[] = [],
+    preIxs: TransactionInstruction[] = []
   ) {
-    const signers = [];
+    const signers = [...additionalSigners];
     if (isKp(player)) signers.push(<Keypair>player);
 
     const txSig = await this.werewolfProgram.methods
@@ -151,18 +160,23 @@ export class WerewolfClient extends AccountUtils {
         player: isKp(player)
           ? (<Keypair>player).publicKey
           : (player as PublicKey),
-        organiser,
         playProof,
         game,
       })
+      .preInstructions(preIxs)
       .signers(signers)
       .rpc();
 
     return { txSig };
   }
 
-  async startGame(organiser: PublicKey | Keypair, game: PublicKey) {
-    const signers = [];
+  async startGame(
+    organiser: PublicKey | Keypair,
+    game: PublicKey,
+    additionalSigners: Keypair[] = [],
+    preIxs: TransactionInstruction[] = []
+  ) {
+    const signers = [...additionalSigners];
     if (isKp(organiser)) signers.push(<Keypair>organiser);
 
     const txSig = await this.werewolfProgram.methods
@@ -173,6 +187,7 @@ export class WerewolfClient extends AccountUtils {
           : (organiser as PublicKey),
         game,
       })
+      .preInstructions(preIxs)
       .signers(signers)
       .rpc();
 
@@ -182,9 +197,11 @@ export class WerewolfClient extends AccountUtils {
   async fillPlayProof(
     player: PublicKey | Keypair,
     playProof: PublicKey,
-    game: PublicKey
+    game: PublicKey,
+    additionalSigners: Keypair[] = [],
+    preIxs: TransactionInstruction[] = []
   ) {
-    const signers = [];
+    const signers = [...additionalSigners];
     if (isKp(player)) signers.push(<Keypair>player);
 
     const txSig = await this.werewolfProgram.methods
@@ -196,6 +213,7 @@ export class WerewolfClient extends AccountUtils {
         playProof,
         game,
       })
+      .preInstructions(preIxs)
       .signers(signers)
       .rpc();
 
