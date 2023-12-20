@@ -678,7 +678,7 @@ export const eliminatePlayerTele = async (
     .from("werewolf")
     .select("*")
     .eq("user_telegram_id", userId);
-  const secretKeyUint8Array = bs58.decode(initiatorDb[0].user_wallet_secret);
+  const secretKeyUint8Array = bs58.decode(initiatorDb.data[0].user_wallet_secret);
   const initiatorKeypair =
     anchor.web3.Keypair.fromSecretKey(secretKeyUint8Array);
 
@@ -686,8 +686,7 @@ export const eliminatePlayerTele = async (
 
   const [gameAccountPda] = wwc.findGamePDA(gameName);
 
-  const { player } = await wwc.fetchMostVotedPlayer(gameAccountPda);
-  const [playerProof] = wwc.findPlayProofPDA(player, gameName);
+  const { player, playerProof } = await wwc.fetchMostVotedPlayer(gameAccountPda);
 
   try {
     if (
