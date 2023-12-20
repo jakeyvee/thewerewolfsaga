@@ -13,16 +13,22 @@ export interface Database {
         Row: {
           created_at: string
           user_telegram_id: number
+          user_telegram_username: string | null
+          user_wallet_pubkey: string
           user_wallet_secret: string
         }
         Insert: {
           created_at?: string
           user_telegram_id: number
+          user_telegram_username?: string | null
+          user_wallet_pubkey: string
           user_wallet_secret: string
         }
         Update: {
           created_at?: string
           user_telegram_id?: number
+          user_telegram_username?: string | null
+          user_wallet_pubkey?: string
           user_wallet_secret?: string
         }
         Relationships: []

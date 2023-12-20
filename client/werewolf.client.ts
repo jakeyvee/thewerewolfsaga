@@ -9,6 +9,7 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 import { isKp, toByteArray } from "./client/types";
+import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 
 export class WerewolfClient extends AccountUtils {
   // @ts-ignore
@@ -72,31 +73,37 @@ export class WerewolfClient extends AccountUtils {
     );
   }
 
-  findKillProofPDA(round: number) {
+  findKillProofPDA(round: number, gameName: string) {
+    const [gamePDA] = this.findGamePDA(gameName);
     return PublicKey.findProgramAddressSync(
       [
         Buffer.from(anchor.utils.bytes.utf8.encode("kill-seed")),
+        gamePDA.toBytes(),
         toByteArray(round),
       ],
       this.werewolfProgram.programId
     );
   }
 
-  findSightProofPDA(round: number) {
+  findSightProofPDA(round: number, gameName: string) {
+    const [gamePDA] = this.findGamePDA(gameName);
     return PublicKey.findProgramAddressSync(
       [
         Buffer.from(anchor.utils.bytes.utf8.encode("sight-seed")),
+        gamePDA.toBytes(),
         toByteArray(round),
       ],
       this.werewolfProgram.programId
     );
   }
 
-  findVoteProofPDA(player: PublicKey, round: number) {
+  findVoteProofPDA(player: PublicKey, round: number, gameName: string) {
+    const [gamePDA] = this.findGamePDA(gameName);
     return PublicKey.findProgramAddressSync(
       [
         Buffer.from(anchor.utils.bytes.utf8.encode("vote-seed")),
         player.toBytes(),
+        gamePDA.toBytes(),
         toByteArray(round),
       ],
       this.werewolfProgram.programId
@@ -115,6 +122,61 @@ export class WerewolfClient extends AccountUtils {
 
   async fetchSightProofAcc(sightProofPDA: PublicKey) {
     return this.werewolfProgram.account.sightProof.fetch(sightProofPDA);
+  }
+
+  // --------------------------------------- fetch all deserialized accounts
+
+  booleanToBase58(boolValue: boolean): string {
+    const byteArray = new Uint8Array([boolValue ? 1 : 0]);
+    return bs58.encode(byteArray);
+  }
+
+  async fetchAllAlivePlayProofByGameKey(gamePDA: PublicKey) {
+    const filter = [
+      {
+        memcmp: {
+          offset: 8 + 32, //prepend for anchor's discriminator + version
+          bytes: gamePDA.toBase58(),
+        },
+      },
+      {
+        memcmp: {
+          offset: 8 + 32 + 32 + 1, //prepend for anchor's discriminator + version
+          bytes: this.booleanToBase58(false),
+        },
+      },
+    ];
+    return this.werewolfProgram.account.playProof.all(filter);
+  }
+
+  async fetchMostVotedPlayer(gamePDA: PublicKey) {
+    const gameAcc = await this.fetchGameAcc(gamePDA);
+    const voteCounts = gameAcc.voteCounts;
+    const maxIdx = voteCounts.reduce(
+      (iMax, x, i, arr) => (x > arr[iMax] ? i : iMax),
+      0
+    );
+    const filter = [
+      {
+        memcmp: {
+          offset: 8 + 32, //prepend for anchor's discriminator + version
+          bytes: gamePDA.toBase58(),
+        },
+      },
+      {
+        memcmp: {
+          offset: 8 + 32 + 32, //prepend for anchor's discriminator + version
+          bytes: bs58.encode(new Uint8Array([maxIdx + 1])),
+        },
+      },
+    ];
+
+    const playerProofs = this.werewolfProgram.account.playProof.all(filter);
+    const playerProof = playerProofs[0].public;
+    const player: PublicKey = playerProof[0].player;
+    return {
+      player,
+    };
   }
 
   // --------------------------------------- ww ixs
@@ -226,9 +288,11 @@ export class WerewolfClient extends AccountUtils {
     villager: PublicKey,
     villagerProof: PublicKey,
     killProof: PublicKey,
-    game: PublicKey
+    game: PublicKey,
+    additionalSigners: Keypair[] = [],
+    preIxs: TransactionInstruction[] = []
   ) {
-    const signers = [];
+    const signers = [...additionalSigners];
     if (isKp(wolf)) signers.push(<Keypair>wolf);
 
     const txSig = await this.werewolfProgram.methods
@@ -241,6 +305,7 @@ export class WerewolfClient extends AccountUtils {
         killProof,
         game,
       })
+      .preInstructions(preIxs)
       .signers(signers)
       .rpc();
 
@@ -253,9 +318,11 @@ export class WerewolfClient extends AccountUtils {
     player: PublicKey,
     playerProof: PublicKey,
     sightProof: PublicKey,
-    game: PublicKey
+    game: PublicKey,
+    additionalSigners: Keypair[] = [],
+    preIxs: TransactionInstruction[] = []
   ) {
-    const signers = [];
+    const signers = [...additionalSigners];
     if (isKp(seer)) signers.push(<Keypair>seer);
 
     const txSig = await this.werewolfProgram.methods
@@ -268,6 +335,7 @@ export class WerewolfClient extends AccountUtils {
         sightProof,
         game,
       })
+      .preInstructions(preIxs)
       .signers(signers)
       .rpc();
 
@@ -280,9 +348,11 @@ export class WerewolfClient extends AccountUtils {
     player: PublicKey,
     playerProof: PublicKey,
     voteProof: PublicKey,
-    game: PublicKey
+    game: PublicKey,
+    additionalSigners: Keypair[] = [],
+    preIxs: TransactionInstruction[] = []
   ) {
-    const signers = [];
+    const signers = [...additionalSigners];
     if (isKp(voter)) signers.push(<Keypair>voter);
 
     const txSig = await this.werewolfProgram.methods
@@ -295,6 +365,7 @@ export class WerewolfClient extends AccountUtils {
         voteProof,
         game,
       })
+      .preInstructions(preIxs)
       .signers(signers)
       .rpc();
 
@@ -305,9 +376,11 @@ export class WerewolfClient extends AccountUtils {
     initiator: PublicKey | Keypair,
     player: PublicKey,
     playerProof: PublicKey,
-    game: PublicKey
+    game: PublicKey,
+    additionalSigners: Keypair[] = [],
+    preIxs: TransactionInstruction[] = []
   ) {
-    const signers = [];
+    const signers = [...additionalSigners];
     if (isKp(initiator)) signers.push(<Keypair>initiator);
 
     const txSig = await this.werewolfProgram.methods
@@ -320,6 +393,7 @@ export class WerewolfClient extends AccountUtils {
         playerProof,
         game,
       })
+      .preInstructions(preIxs)
       .signers(signers)
       .rpc();
 
